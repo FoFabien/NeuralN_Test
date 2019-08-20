@@ -90,13 +90,6 @@ print("Starting Weights: ")
 print(nn.weights)
 
 print("Training...")
-"""training_inputs = np.array([[0,0,1],
-                            [1,1,1],
-                            [1,0,1],
-                            [0,1,1]])"""
-
-#training_outputs = np.array([[0],[1],[1],[0]])
-
 training_inputs = np.array(([2, 9], [1, 5], [3, 6]), dtype=float) # input data
 training_outputs = np.array(([0.92], [0.86], [0.89]), dtype=float) # output
 nn.backward(training_inputs, training_outputs, learning=0.1, decay=0.0001, n=500000)
