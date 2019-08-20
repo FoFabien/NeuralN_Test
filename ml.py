@@ -3,27 +3,31 @@ import numpy as np
 
 class NN():
     def __init__(self, layersize = [1, 1]):
-        np.random.seed(1)
+        """ Initialize the neural network """
+        np.random.seed(1) # random seed
 
         if len(layersize) < 2:
             raise Exception('Invalid Parameters')
 
-        self.weights = []
+        self.weights = [] # our weights
         for i in range(0, len(layersize)-1):
             if layersize[i] < 1 or layersize[i+1] < 1:
                 raise Exception('Invalid Parameters')
-            self.weights.append(2 * np.random.random((layersize[i], layersize[i+1])) - 1)
+            self.weights.append(np.random.randn(layersize[i], layersize[i+1])) # initialize them with the numbers of inputs and outputs
 
-    def sigmoid(self, s):
+    def sigmoid(self, s): # sigmoid function
         return 1/(1+np.exp(-s))
 
-    def sigmoidDerive(self, s):
+    def sigmoidDerive(self, s): # prime sigmoid function
         return s * (1 - s)
 
     def save(self, filename):
+        """ Save to JSON """
         try:
             data = {}
-            data['weights'] = self.weights
+            data['weights'] = []
+            for w in self.weights:
+                data['weights'].append(w.tolist())
             with open(filename, 'w') as outfile:
                 json.dump(data, outfile)
         except Exception as e:
@@ -32,62 +36,77 @@ class NN():
         return True
 
     def load(self, filename):
+        """ Load a JSON """
         try:
             with open(filename) as f:
                 data = json.load(f)
-            self.weights = data['weights']
+            self.weights = []
+            for w in data['weights']:
+                self.weights.append(np.array(w))
         except Exception as e:
             print(e)
             return False
         return True
 
     def forward(self, inputs):
-        out = []
+        """ Forward Propagation
+        Give an output for given inputs """
+        out = [] # store intermediate outputs for training purpose
         for w in self.weights:
             if len(out) == 0:
-                out.append(self.sigmoid(np.dot(inputs.astype(float), w)))
+                out.append(self.sigmoid(np.dot(inputs.astype(float), w))) # first layer uses inputs
             else:
-                out.append(self.sigmoid(np.dot(out[-1].astype(float), w)))
+                out.append(self.sigmoid(np.dot(out[-1].astype(float), w))) # successive layers uses previous layers outputs
         return out
 
-    def backward(self, inputs, results, outputs):
-        deltas = None
-        for i in range(len(results)-1, -1, -1):
-            if i == len(results)-1:
-                error = outputs - results[i]
-                deltas = error*self.sigmoidDerive(results[i])
-            else:
-                error = delta.dot(self.weights[i+1].T)
-                deltas = error*self.sigmoidDerive(results[i])
-            if i == 0:
-                self.weights[i] += inputs.T.dot(deltas)
-            else:
-                self.weights[i] += results[i-1].T.dot(deltas)
+    def backward(self, inputs, outputs, learning = 1.0, decay=0.0, n = 1):
+        """ Backward Propagation
+        Train the network 
+        learning: learning rate
+        decay: weight decay"""
+        for i in range(0, n): # iterations
+            results = self.forward(inputs) # get outputs
+            deltas = None
+            for i in range(len(results)-1, -1, -1): # for each layer (from last to first)
+                if i == len(results)-1: # last layer
+                    error = outputs - results[i] # calculate error
+                    deltas = error*self.sigmoidDerive(results[i]) # delta output
+                else: # other layers
+                    error = deltas.dot(self.weights[i+1].T) # calculate error
+                    deltas = error*self.sigmoidDerive(results[i]) # delta output
+                if i == 0: # first layer
+                    self.weights[i] += inputs.T.dot(deltas) * learning # adjust the set of weights
+                else: # other layers
+                    self.weights[i] += results[i].T.dot(deltas) * learning # adjust the set of weights
+                # apply weight decay
+                self.weights[i] -= self.weights[i] * decay
 
-    def train(self, inputs, outputs, n):
-        for i in range(0, n):
-            results = self.forward(inputs)
-            self.backward(inputs, results, outputs)
+# test
+nn = NN([2, 3, 1])
+if nn.load('test.json'):
+    print("Loaded from file")
 
-
-nn = NN([3, 2, 1])
-
-print("Random starting synaptic weights: ")
+print("Starting Weights: ")
 print(nn.weights)
 
-# The training set, with 4 examples consisting of 3
-# input values and 1 output value
-training_inputs = np.array([[0,0,1],
+print("Training...")
+"""training_inputs = np.array([[0,0,1],
                             [1,1,1],
                             [1,0,1],
-                            [0,1,1]])
+                            [0,1,1]])"""
 
-training_outputs = np.array([[0,1,1,0]]).T
+#training_outputs = np.array([[0],[1],[1],[0]])
 
-# Train the neural network
-nn.train(training_inputs, training_outputs, 10000)
+training_inputs = np.array(([2, 9], [1, 5], [3, 6]), dtype=float) # input data
+training_outputs = np.array(([0.92], [0.86], [0.89]), dtype=float) # output
+nn.backward(training_inputs, training_outputs, learning=0.1, decay=0.0001, n=500000)
 
-print("Synaptic weights after training: ")
+print("Weights: ")
 print(nn.weights)
-print("Output: ")
-print(nn.forward(np.array([0,0,1])))
+
+print("Test Output with inputs [5,10]: ")
+print(nn.forward(np.array([5,10]))[-1])
+
+
+print("Saving...")
+nn.save('test.json')
